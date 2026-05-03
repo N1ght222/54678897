@@ -1,180 +1,681 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ru">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>I Love You</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>JARVIS ESP</title>
+<link rel="manifest" href="data:application/json,{}">
 <style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body {
-    background: #0d0610;
-    min-height: 100vh;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    overflow: hidden;
-  }
-  #scene {
-    position: relative;
-    width: 700px;
-    height: 660px;
-  }
-  .word {
-    position: absolute;
-    white-space: nowrap;
-    pointer-events: none;
-    font-family: 'Georgia', serif;
-    font-style: italic;
-    font-size: 15px;
-    font-weight: 400;
-    letter-spacing: 0.03em;
-    transform-origin: left center;
-  }
+@import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;600;700;900&family=Rajdhani:wght@300;400;600&display=swap');
+
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+:root{
+  --g:#00ff9d;--g2:#00cc7a;--r:#ff2d55;--b:#0af;--y:#ffd60a;--p:#bf5af2;
+  --bg:#000;--panel:rgba(0,10,6,0.92);--border:rgba(0,255,157,0.25);
+}
+html,body{height:100%;overflow:hidden;background:#000;font-family:'Share Tech Mono',monospace;}
+
+/* ── VIDEO ── */
+#video{position:fixed;inset:0;width:100%;height:100%;object-fit:cover;z-index:1;}
+#canvas{position:fixed;inset:0;width:100%;height:100%;z-index:2;pointer-events:none;}
+
+/* ── SCANLINES ── */
+#scanlines{position:fixed;inset:0;z-index:3;pointer-events:none;
+  background:repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(0,0,0,0.06) 3px,rgba(0,0,0,0.06) 4px);}
+#vignette{position:fixed;inset:0;z-index:3;pointer-events:none;
+  background:radial-gradient(ellipse at center,transparent 50%,rgba(0,0,0,0.6) 100%);}
+
+/* ── SCANLINE SWEEP ── */
+#sweep{position:fixed;left:0;right:0;height:3px;z-index:4;pointer-events:none;top:0;opacity:0;
+  background:linear-gradient(90deg,transparent,var(--g),var(--b),transparent);
+  box-shadow:0 0 20px var(--g),0 0 40px var(--b);}
+#sweep.run{animation:sweepAnim 1.5s cubic-bezier(.4,0,.6,1) forwards;}
+@keyframes sweepAnim{0%{top:0;opacity:1;}100%{top:100%;opacity:0;}}
+
+/* ── TAP RIPPLE ── */
+.tap-ripple{position:fixed;width:60px;height:60px;border:2px solid var(--g);border-radius:50%;
+  pointer-events:none;z-index:20;transform:translate(-50%,-50%) scale(0);
+  animation:ripple .5s ease-out forwards;}
+@keyframes ripple{to{transform:translate(-50%,-50%) scale(2.5);opacity:0;}}
+
+/* ── CORNERS ── */
+.corner{position:fixed;width:50px;height:50px;z-index:6;}
+.corner::before,.corner::after{content:'';position:absolute;background:var(--g);opacity:.6;}
+.corner::before{width:100%;height:1.5px;top:0;left:0;}
+.corner::after{width:1.5px;height:100%;top:0;left:0;}
+.corner.tl{top:14px;left:14px;}.corner.tr{top:14px;right:14px;transform:scaleX(-1);}
+.corner.bl{bottom:14px;left:14px;transform:scaleY(-1);}.corner.br{bottom:14px;right:14px;transform:scale(-1);}
+
+/* ── TOP HUD ── */
+#hudTop{position:fixed;top:0;left:0;right:0;z-index:6;padding:10px 16px 6px;
+  background:linear-gradient(to bottom,rgba(0,0,0,.8),transparent);
+  display:flex;justify-content:space-between;align-items:center;}
+#appName{font-family:'Orbitron',sans-serif;font-size:14px;font-weight:900;letter-spacing:5px;
+  color:var(--g);text-shadow:0 0 15px var(--g);}
+#topRight{text-align:right;}
+#liveTag{font-size:9px;color:var(--g);letter-spacing:3px;animation:blink 1.4s infinite;}
+#timeEl{font-size:11px;color:var(--b);letter-spacing:2px;}
+@keyframes blink{0%,100%{opacity:1;}50%{opacity:.2;}}
+
+/* ── BOTTOM HUD ── */
+#hudBot{position:fixed;bottom:0;left:0;right:0;z-index:6;padding:8px 14px 22px;
+  background:linear-gradient(to top,rgba(0,0,0,.85),transparent);
+  display:flex;justify-content:space-between;align-items:flex-end;gap:10px;}
+#statsLeft{display:flex;flex-direction:column;gap:4px;}
+.stat{font-size:9px;color:rgba(0,255,157,.5);letter-spacing:1.5px;}
+.stat span{color:var(--g);}
+
+/* ── BUTTONS ── */
+.hud-btn{font-family:'Orbitron',sans-serif;font-size:10px;font-weight:700;letter-spacing:2px;
+  padding:9px 16px;background:transparent;border:1.5px solid var(--g);color:var(--g);
+  cursor:pointer;text-transform:uppercase;
+  box-shadow:0 0 10px rgba(0,255,157,.2),inset 0 0 10px rgba(0,255,157,.04);
+  transition:all .15s;}
+.hud-btn:active{background:rgba(0,255,157,.15);box-shadow:0 0 25px rgba(0,255,157,.5);}
+.hud-btn.loading{border-color:var(--b);color:var(--b);pointer-events:none;
+  box-shadow:0 0 12px rgba(0,170,255,.3);animation:pulse .8s infinite alternate;}
+@keyframes pulse{from{opacity:.6;}to{opacity:1;}}
+#flipBtn{padding:9px 12px;border-color:rgba(0,255,157,.4);color:rgba(0,255,157,.6);font-size:14px;}
+
+/* ── OBJ COUNT BAR ── */
+#objBar{position:fixed;top:52px;left:14px;z-index:6;font-size:9px;
+  color:rgba(0,255,157,.45);letter-spacing:2px;}
+#objBar span{color:var(--g);}
+
+/* ── INFO PANEL ── */
+#infoPanel{position:fixed;bottom:80px;left:10px;right:10px;z-index:15;
+  background:var(--panel);border:1px solid var(--border);
+  backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);
+  transform:translateY(120%);transition:transform .35s cubic-bezier(.2,.8,.3,1);
+  max-height:60vh;overflow-y:auto;}
+#infoPanel.open{transform:translateY(0);}
+
+#panelHead{padding:10px 14px;border-bottom:1px solid var(--border);
+  display:flex;justify-content:space-between;align-items:center;
+  background:rgba(0,255,157,.04);}
+#panelTitle{font-family:'Orbitron',sans-serif;font-size:12px;font-weight:700;
+  color:var(--g);letter-spacing:3px;}
+#panelBadge{font-size:9px;padding:2px 8px;border:1px solid;letter-spacing:2px;}
+#closeBtn{font-size:18px;color:var(--r);cursor:pointer;padding:0 4px;line-height:1;}
+
+#panelBody{padding:12px 14px;}
+
+/* Loading skeleton */
+#loadingState{display:flex;flex-direction:column;gap:8px;padding:6px 0;}
+.skel{height:10px;background:linear-gradient(90deg,rgba(0,255,157,.05) 0%,rgba(0,255,157,.15) 50%,rgba(0,255,157,.05) 100%);
+  background-size:200% 100%;animation:skelShim 1.2s infinite;}
+@keyframes skelShim{0%{background-position:200% 0;}100%{background-position:-200% 0;}}
+
+/* Data rows */
+.section-title{font-size:9px;color:var(--b);letter-spacing:3px;margin:10px 0 6px;
+  border-left:2px solid var(--b);padding-left:6px;}
+.data-row{display:flex;justify-content:space-between;align-items:flex-start;
+  padding:4px 0;border-bottom:1px solid rgba(0,255,157,.06);}
+.data-key{font-size:9px;color:rgba(0,255,157,.5);letter-spacing:1px;flex:0 0 45%;}
+.data-val{font-size:10px;color:var(--g);letter-spacing:.5px;text-align:right;flex:1;}
+.data-val.red{color:var(--r);}
+.data-val.yellow{color:var(--y);}
+.data-val.blue{color:var(--b);}
+.data-val.purple{color:var(--p);}
+
+/* Confidence bar */
+.conf-bar{height:3px;background:rgba(0,255,157,.1);margin-top:8px;overflow:hidden;}
+.conf-fill{height:100%;background:linear-gradient(90deg,var(--g2),var(--g));transition:width .6s ease;}
+
+/* Description block */
+.desc-block{font-family:'Rajdhani',sans-serif;font-size:13px;color:rgba(0,255,157,.7);
+  line-height:1.6;margin-top:8px;padding:8px;background:rgba(0,255,157,.03);
+  border-left:2px solid rgba(0,255,157,.2);}
+
+/* ── START SCREEN ── */
+#startScreen{position:fixed;inset:0;z-index:30;background:rgba(0,0,0,.95);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;
+  padding:30px;}
+.start-logo{font-family:'Orbitron',sans-serif;font-size:36px;font-weight:900;
+  color:var(--g);letter-spacing:8px;text-shadow:0 0 40px var(--g),0 0 80px var(--g2);
+  animation:logoGlow 2s ease-in-out infinite alternate;}
+@keyframes logoGlow{from{text-shadow:0 0 20px var(--g);}to{text-shadow:0 0 50px var(--g),0 0 100px var(--g2),0 0 150px rgba(0,255,157,.3);}}
+.start-sub{font-size:10px;color:var(--b);letter-spacing:4px;text-align:center;opacity:.8;}
+.start-features{display:flex;flex-direction:column;gap:6px;width:100%;max-width:280px;margin:10px 0;}
+.feat{font-size:10px;color:rgba(0,255,157,.55);letter-spacing:1px;padding:4px 0;
+  border-left:2px solid rgba(0,255,157,.2);padding-left:8px;}
+.feat::before{content:'▸ ';}
+#startBtn{font-family:'Orbitron',sans-serif;font-size:12px;font-weight:700;letter-spacing:4px;
+  padding:14px 40px;background:transparent;border:2px solid var(--g);color:var(--g);
+  cursor:pointer;text-transform:uppercase;
+  box-shadow:0 0 25px rgba(0,255,157,.3),inset 0 0 25px rgba(0,255,157,.05);}
+#startBtn:active{background:rgba(0,255,157,.2);}
+.start-warn{font-size:9px;color:rgba(255,45,85,.6);letter-spacing:1px;text-align:center;max-width:260px;}
+
+/* ── HINT ── */
+#hint{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);
+  z-index:7;pointer-events:none;text-align:center;
+  animation:hintFade 4s ease-out forwards;}
+@keyframes hintFade{0%{opacity:0;}20%{opacity:1;}70%{opacity:1;}100%{opacity:0;}}
+.hint-text{font-size:11px;color:rgba(0,255,157,.6);letter-spacing:2px;}
+.hint-icon{font-size:28px;display:block;margin-bottom:6px;opacity:.5;}
+
+/* scrollbar */
+#infoPanel::-webkit-scrollbar{width:3px;}
+#infoPanel::-webkit-scrollbar-track{background:transparent;}
+#infoPanel::-webkit-scrollbar-thumb{background:rgba(0,255,157,.3);}
 </style>
 </head>
 <body>
-<div id="scene"></div>
+
+<!-- START -->
+<div id="startScreen">
+  <div class="start-logo">JARVIS</div>
+  <div class="start-sub">ESP VISION SYSTEM v2.0</div>
+  <div class="start-features">
+    <div class="feat">Детекция объектов в реальном времени</div>
+    <div class="feat">Тап по объекту — полный AI-анализ</div>
+    <div class="feat">Автомобили: марка, модель, год, тип</div>
+    <div class="feat">Здания: этажи, архитектура, возраст</div>
+    <div class="feat">Люди: внешность, одежда, эмоции</div>
+    <div class="feat">Любые объекты: состав, характеристики</div>
+  </div>
+  <button id="startBtn" onclick="initCamera()">АКТИВИРОВАТЬ</button>
+  <div class="start-warn">⚠ Требуется доступ к камере и интернет</div>
+</div>
+
+<video id="video" autoplay playsinline muted></video>
+<canvas id="canvas" id="mainCanvas"></canvas>
+<div id="scanlines"></div>
+<div id="vignette"></div>
+<div id="sweep"></div>
+
+<div class="corner tl"></div><div class="corner tr"></div>
+<div class="corner bl"></div><div class="corner br"></div>
+
+<div id="hudTop">
+  <div id="appName">JARVIS</div>
+  <div id="topRight">
+    <div id="liveTag">● АКТИВЕН</div>
+    <div id="timeEl">--:--:--</div>
+  </div>
+</div>
+
+<div id="objBar">ОБЪЕКТОВ: <span id="objNum">0</span></div>
+
+<div id="hint">
+  <span class="hint-icon">👆</span>
+  <div class="hint-text">НАЖМИ СКАНИРОВАТЬ</div>
+  <div class="hint-text">ЗАТЕМ ТАП ПО ОБЪЕКТУ</div>
+</div>
+
+<!-- INFO PANEL -->
+<div id="infoPanel">
+  <div id="panelHead">
+    <div id="panelTitle">АНАЛИЗ</div>
+    <div id="panelBadge">—</div>
+    <div id="closeBtn" onclick="closePanel()">✕</div>
+  </div>
+  <div id="panelBody">
+    <div id="loadingState" style="display:none">
+      <div class="skel" style="width:60%"></div>
+      <div class="skel" style="width:90%"></div>
+      <div class="skel" style="width:75%"></div>
+      <div class="skel" style="width:50%"></div>
+      <div class="skel" style="width:80%"></div>
+    </div>
+    <div id="dataContent"></div>
+  </div>
+</div>
+
+<div id="hudBot">
+  <div id="statsLeft">
+    <div class="stat">КАМЕРА: <span id="camMode">REAR</span></div>
+    <div class="stat">СТАТУС: <span id="statusTxt">ГОТОВ</span></div>
+  </div>
+  <div style="display:flex;gap:8px;align-items:flex-end;">
+    <button class="hud-btn" id="flipBtn" onclick="flipCamera()">⟳</button>
+    <button class="hud-btn" id="scanBtn" onclick="doScan()">СКАНИРОВАТЬ</button>
+  </div>
+</div>
+
 <script>
-const scene = document.getElementById('scene');
-const W = 700, H = 660;
-const CX = W * 0.46;
-const CY = H * 0.50;
-const SCALE = 24;
+const video = document.getElementById('video');
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+const sweep = document.getElementById('sweep');
+const objNum = document.getElementById('objNum');
+const statusTxt = document.getElementById('statusTxt');
+const scanBtn = document.getElementById('scanBtn');
+const infoPanel = document.getElementById('infoPanel');
+const panelTitle = document.getElementById('panelTitle');
+const panelBadge = document.getElementById('panelBadge');
+const loadingState = document.getElementById('loadingState');
+const dataContent = document.getElementById('dataContent');
 
-// Heart parametric
-function heartXY(t) {
-  const x = CX + SCALE * 16 * Math.pow(Math.sin(t), 3);
-  const y = CY - SCALE * (13*Math.cos(t) - 5*Math.cos(2*t) - 2*Math.cos(3*t) - Math.cos(4*t));
-  return { x, y };
+let facingMode = 'environment';
+let stream = null;
+let objects = [];
+let scanning = false;
+let analyzing = false;
+
+// Clock
+setInterval(() => {
+  const n = new Date();
+  document.getElementById('timeEl').textContent =
+    n.getHours().toString().padStart(2,'0')+':'+
+    n.getMinutes().toString().padStart(2,'0')+':'+
+    n.getSeconds().toString().padStart(2,'0');
+}, 1000);
+
+// Resize canvas
+function resizeCanvas() {
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+  if (objects.length) drawBoxes(objects);
 }
+window.addEventListener('resize', resizeCanvas);
+resizeCanvas();
 
-// Build arc-length table
-const STEPS = 4000;
-const arc = [];
-let total = 0;
-let prev = heartXY(0);
-arc.push({ x: prev.x, y: prev.y, len: 0 });
-for (let i = 1; i <= STEPS; i++) {
-  const t = (i / STEPS) * Math.PI * 2;
-  const p = heartXY(t);
-  const d = Math.hypot(p.x - prev.x, p.y - prev.y);
-  total += d;
-  arc.push({ x: p.x, y: p.y, len: total });
-  prev = p;
-}
-
-function posAt(frac) {
-  frac = ((frac % 1) + 1) % 1;
-  const target = frac * total;
-  let lo = 0, hi = arc.length - 1;
-  while (lo < hi - 1) {
-    const m = (lo + hi) >> 1;
-    arc[m].len < target ? lo = m : hi = m;
+// Camera init
+async function initCamera() {
+  document.getElementById('startScreen').style.display = 'none';
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode, width:{ideal:1920}, height:{ideal:1080} }, audio: false
+    });
+    video.srcObject = stream;
+    statusTxt.textContent = 'КАМЕРА OK';
+  } catch(e) {
+    statusTxt.textContent = 'ERR CAM';
   }
-  const a = arc[lo], b = arc[hi];
-  const f = b.len > a.len ? (target - a.len) / (b.len - a.len) : 0;
-  return { x: a.x + (b.x - a.x) * f, y: a.y + (b.y - a.y) * f };
 }
 
-// Find bottom tip (max y on screen)
-let bottomFrac = 0, maxY = -Infinity;
-for (let i = 0; i < arc.length; i++) {
-  if (arc[i].y > maxY) { maxY = arc[i].y; bottomFrac = arc[i].len / total; }
+async function flipCamera() {
+  facingMode = facingMode === 'environment' ? 'user' : 'environment';
+  document.getElementById('camMode').textContent = facingMode === 'environment' ? 'REAR' : 'FRONT';
+  if (stream) stream.getTracks().forEach(t => t.stop());
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode, width:{ideal:1920}, height:{ideal:1080} }, audio: false
+    });
+    video.srcObject = stream;
+  } catch(e) {}
 }
 
-// --- Params that match the photo ---
-// • All same font size (15px)
-// • Queue of ~50 labels
-// • Born at bottom, travel counter-clockwise (decreasing frac = going left side up)
-//   Looking at photo: left side goes DOWN (text goes bottom→up on left, bottom→up on right)
-//   Actually the photo shows: from bottom tip, texts go UP the LEFT side,
-//   then along the top bumps, then DOWN the right side — counter-clockwise when viewed
-//   BUT in our coord system (y flips): let's check.
-//   Heart t=0 → top right. Increasing t → goes right bump top → right side down → bottom → left side up → left bump top → back
-//   So INCREASING t (arc frac) = clockwise visually.
-//   Photo: born at bottom, travels UP the LEFT side = counter-clockwise = DECREASING arc frac.
-// • Gap before start: ~30px worth of arc
-
-const N = 110;           // number of labels in the queue
-const GAP_PX = 32;      // invisible gap before birth point
-const GAP_FRAC = GAP_PX / total;
-const TRAVEL = 1 - GAP_FRAC;    // how far they go (almost full circle)
-const SPACING = TRAVEL / N;     // arc spacing between consecutive labels
-const SPEED = 0.07;             // arc fractions per second (counter-clockwise = negative direction)
-
-// Pre-create DOM elements
-const els = [];
-for (let i = 0; i < N; i++) {
-  const el = document.createElement('div');
-  el.className = 'word';
-  el.textContent = 'I love you';
-  scene.appendChild(el);
-  els.push(el);
+// Capture frame as base64
+function captureFrame(quality=0.8) {
+  const tmp = document.createElement('canvas');
+  tmp.width = video.videoWidth || 1280;
+  tmp.height = video.videoHeight || 720;
+  tmp.getContext('2d').drawImage(video, 0, 0);
+  return tmp.toDataURL('image/jpeg', quality).split(',')[1];
 }
 
-let last = null;
-let head = bottomFrac; // head = newest/brightest particle, at birth point
+// SCAN — detect all objects
+async function doScan() {
+  if (scanning) return;
+  scanning = true;
+  scanBtn.textContent = 'СКАНИРУЮ...';
+  scanBtn.classList.add('loading');
+  statusTxt.textContent = 'СКАНИРОВАНИЕ';
 
-function animate(ts) {
-  if (!last) last = ts;
-  const dt = Math.min((ts - last) / 1000, 0.05);
-  last = ts;
+  sweep.classList.remove('run');
+  void sweep.offsetWidth;
+  sweep.classList.add('run');
 
-  // Move counter-clockwise: subtract from frac
-  head -= SPEED * dt;
+  const b64 = captureFrame(0.75);
 
-  for (let i = 0; i < N; i++) {
-    // i=0: head (brightest, just born at bottom)
-    // i=N-1: tail (dimmest, furthest along path)
-    const frac = ((head + i * SPACING) % 1 + 1) % 1;
-
-    // Distance this particle has traveled from birth point
-    let traveled = bottomFrac - frac;
-    if (traveled < 0) traveled += 1;
-
-    // Is it in the dead zone? (hasn't been born yet or past disappear point)
-    const alive = traveled <= TRAVEL;
-    if (!alive) {
-      els[i].style.opacity = 0;
-      continue;
-    }
-
-    const { x, y } = posAt(frac);
-
-    // Opacity: head=1.0, fades linearly to 0 at tail
-    // Extra soft fade-out in last 8% of travel
-    let t_norm = traveled / TRAVEL; // 0 = just born, 1 = about to die
-    let opacity = 1 - t_norm;       // linear fade: head bright, tail dark
-
-    // Smooth death near end
-    if (t_norm > 0.90) {
-      opacity *= (1 - (t_norm - 0.90) / 0.10);
-    }
-
-    opacity = Math.max(0, Math.min(1, opacity));
-
-    els[i].style.opacity = opacity;
-    // Left-align: position is left edge of text
-    els[i].style.left = x + 'px';
-    els[i].style.top  = y + 'px';
-    // transform: keep horizontal, anchor left-center like the photo
-    els[i].style.transform = 'translateY(-50%)';
-
-    // Color stays consistent pink, just opacity changes (matching photo)
-    els[i].style.color = '#ffb3c1';
-    if (opacity > 0.5) {
-      els[i].style.textShadow = `0 0 5px rgba(255,60,100,0.7), 0 0 12px rgba(255,20,70,0.35)`;
-    } else if (opacity > 0.15) {
-      els[i].style.textShadow = `0 0 4px rgba(255,60,100,0.4)`;
-    } else {
-      els[i].style.textShadow = 'none';
-    }
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1000,
+        messages:[{role:'user',content:[
+          {type:'image',source:{type:'base64',media_type:'image/jpeg',data:b64}},
+          {type:'text',text:`Ты система детекции объектов JARVIS ESP. Найди ВСЕ объекты на изображении.
+Отвечай ТОЛЬКО JSON без markdown:
+{"objects":[{"id":1,"label":"название по-русски","type":"car|building|person|animal|object|vehicle|plant|food|tech","confidence":0.95,"box":{"x":0.1,"y":0.2,"w":0.3,"h":0.4}}]}
+x,y,w,h — доли 0..1. Найди максимум объектов. Максимум 12.`}
+        ]}]
+      })
+    });
+    const data = await res.json();
+    const text = data.content?.find(b=>b.type==='text')?.text||'{}';
+    const clean = text.replace(/```json|```/g,'').trim();
+    const match = clean.match(/\{[\s\S]*\}/);
+    const parsed = match ? JSON.parse(match[0]) : {objects:[]};
+    objects = parsed.objects || [];
+    objNum.textContent = objects.length;
+    drawBoxes(objects);
+    statusTxt.textContent = 'НАЙДЕНО: '+objects.length;
+  } catch(e) {
+    statusTxt.textContent = 'ERR SCAN';
   }
 
-  requestAnimationFrame(animate);
+  scanBtn.textContent = 'СКАНИРОВАТЬ';
+  scanBtn.classList.remove('loading');
+  scanning = false;
 }
 
-requestAnimationFrame(animate);
+// Color per type
+function typeColor(type) {
+  const map = {
+    car:'#ff2d55', vehicle:'#ff6b35', building:'#0af',
+    person:'#00ff9d', animal:'#ffd60a', plant:'#00cc7a',
+    food:'#ff9f0a', tech:'#bf5af2', object:'#8e8e93'
+  };
+  return map[type] || '#00ff9d';
+}
+
+// Draw ESP boxes
+function drawBoxes(objs) {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  if (!objs.length) return;
+
+  const cw = canvas.width, ch = canvas.height;
+  const vw = video.videoWidth || 1280, vh = video.videoHeight || 720;
+  const vRatio = vw / vh, cRatio = cw / ch;
+  let rW, rH, oX, oY;
+  if (vRatio > cRatio) {
+    rH = ch; rW = ch * vRatio; oX = (cw - rW) / 2; oY = 0;
+  } else {
+    rW = cw; rH = cw / vRatio; oX = 0; oY = (ch - rH) / 2;
+  }
+
+  objs.forEach((obj, i) => {
+    const col = typeColor(obj.type);
+    const x = oX + obj.box.x * rW;
+    const y = oY + obj.box.y * rH;
+    const w = obj.box.w * rW;
+    const h = obj.box.h * rH;
+
+    // Store screen coords
+    obj._sx = x; obj._sy = y; obj._sw = w; obj._sh = h;
+
+    ctx.save();
+    ctx.shadowColor = col;
+    ctx.shadowBlur = 8;
+    ctx.strokeStyle = col;
+    ctx.globalAlpha = 0.85;
+
+    // Main box
+    ctx.lineWidth = 1.5;
+    ctx.strokeRect(x, y, w, h);
+
+    // Corners
+    const cs = Math.min(w, h) * 0.2;
+    ctx.lineWidth = 2.5;
+    ctx.shadowBlur = 16;
+    [[x,y,1,1],[x+w,y,-1,1],[x,y+h,1,-1],[x+w,y+h,-1,-1]].forEach(([cx,cy,dx,dy])=>{
+      ctx.beginPath();
+      ctx.moveTo(cx, cy + dy*cs);
+      ctx.lineTo(cx, cy);
+      ctx.lineTo(cx + dx*cs, cy);
+      ctx.stroke();
+    });
+
+    // Label
+    ctx.shadowBlur = 6;
+    ctx.font = 'bold 11px "Share Tech Mono"';
+    const label = (obj.label || 'объект').toUpperCase();
+    const conf = Math.round((obj.confidence||.9)*100);
+    const tag = `[${i+1}] ${label} ${conf}%`;
+    const tw = ctx.measureText(tag).width + 12;
+    const tagY = y >= 20 ? y - 18 : y + 2;
+
+    ctx.globalAlpha = 0.8;
+    ctx.fillStyle = '#000';
+    ctx.fillRect(x, tagY, tw, 16);
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = col;
+    ctx.fillText(tag, x + 6, tagY + 12);
+
+    // ID dot
+    ctx.beginPath();
+    ctx.arc(x + w - 8, y + h - 8, 4, 0, Math.PI*2);
+    ctx.fillStyle = col;
+    ctx.fill();
+
+    ctx.restore();
+  });
+}
+
+// TAP on canvas — find which object was tapped
+canvas.style.pointerEvents = 'auto';
+canvas.addEventListener('click', e => {
+  if (!objects.length) return;
+  const rect = canvas.getBoundingClientRect();
+  const tx = e.clientX - rect.left;
+  const ty = e.clientY - rect.top;
+
+  // ripple
+  const rip = document.createElement('div');
+  rip.className = 'tap-ripple';
+  rip.style.left = e.clientX + 'px';
+  rip.style.top = e.clientY + 'px';
+  document.body.appendChild(rip);
+  setTimeout(() => rip.remove(), 600);
+
+  // find tapped object
+  let hit = null;
+  objects.forEach(obj => {
+    if (tx >= obj._sx && tx <= obj._sx + obj._sw &&
+        ty >= obj._sy && ty <= obj._sy + obj._sh) {
+      hit = obj;
+    }
+  });
+
+  if (hit) analyzeObject(hit, e.clientX, e.clientY);
+});
+
+// ANALYZE tapped object
+async function analyzeObject(obj, tapX, tapY) {
+  if (analyzing) return;
+  analyzing = true;
+
+  // Open panel
+  const col = typeColor(obj.type);
+  panelTitle.textContent = (obj.label || 'ОБЪЕКТ').toUpperCase();
+  panelBadge.textContent = getTypeName(obj.type);
+  panelBadge.style.borderColor = col;
+  panelBadge.style.color = col;
+  dataContent.innerHTML = '';
+  loadingState.style.display = 'flex';
+  infoPanel.classList.add('open');
+
+  // Crop the object region from video
+  const b64 = captureFrame(0.85);
+
+  const prompt = buildPrompt(obj.type, obj.label);
+
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1000,
+        messages:[{role:'user',content:[
+          {type:'image',source:{type:'base64',media_type:'image/jpeg',data:b64}},
+          {type:'text',text:prompt}
+        ]}]
+      })
+    });
+
+    const data = await res.json();
+    const text = data.content?.find(b=>b.type==='text')?.text || '{}';
+    const clean = text.replace(/```json|```/g,'').trim();
+    const match = clean.match(/\{[\s\S]*\}/);
+    const parsed = match ? JSON.parse(match[0]) : {};
+
+    loadingState.style.display = 'none';
+    renderData(parsed, obj.type, col);
+
+  } catch(e) {
+    loadingState.style.display = 'none';
+    dataContent.innerHTML = '<div class="desc-block" style="color:#ff2d55">ОШИБКА АНАЛИЗА: ' + e.message + '</div>';
+  }
+
+  analyzing = false;
+}
+
+function getTypeName(type) {
+  const m = {car:'АВТОМОБИЛЬ',vehicle:'ТРАНСПОРТ',building:'ЗДАНИЕ',person:'ЧЕЛОВЕК',
+    animal:'ЖИВОТНОЕ',plant:'РАСТЕНИЕ',food:'ЕДА',tech:'УСТРОЙСТВО',object:'ОБЪЕКТ'};
+  return m[type] || 'ОБЪЕКТ';
+}
+
+// Build analysis prompt by type
+function buildPrompt(type, label) {
+  const base = `Ты AI-аналитик JARVIS. На изображении есть объект: "${label}". Дай МАКСИМАЛЬНО детальный анализ.
+Ответь ТОЛЬКО JSON без markdown и пояснений:`;
+
+  if (type === 'car' || type === 'vehicle') {
+    return base + `
+{"category":"ТРАНСПОРТ","confidence":0.95,
+"sections":{
+  "Идентификация":[
+    {"key":"МАРКА","val":"..."},{"key":"МОДЕЛЬ","val":"..."},{"key":"ПОКОЛЕНИЕ","val":"..."},
+    {"key":"ГОД ВЫПУСКА","val":"..."},{"key":"СТРАНА","val":"..."}
+  ],
+  "Характеристики":[
+    {"key":"ТИП КУЗОВА","val":"..."},{"key":"ЦВЕТ","val":"..."},{"key":"ПРИВОД","val":"..."},
+    {"key":"ДВИГАТЕЛЬ","val":"..."},{"key":"МОЩНОСТЬ","val":"..."},{"key":"КПП","val":"..."}
+  ],
+  "Состояние":[
+    {"key":"ОБЩЕЕ","val":"...","flag":"green|yellow|red"},
+    {"key":"КУЗОВ","val":"...","flag":"green|yellow|red"},
+    {"key":"ВИДИМЫЕ ПОВРЕЖДЕНИЯ","val":"..."}
+  ],
+  "Оценка":[
+    {"key":"РЫНОЧНАЯ ЦЕНА","val":"..."},{"key":"КЛАСС","val":"..."},{"key":"ПОПУЛЯРНОСТЬ","val":"..."}
+  ]
+},
+"description":"Детальное описание автомобиля 2-3 предложения"}`;
+  }
+
+  if (type === 'building') {
+    return base + `
+{"category":"ЗДАНИЕ","confidence":0.95,
+"sections":{
+  "Идентификация":[
+    {"key":"ТИП ЗДАНИЯ","val":"..."},{"key":"АРХИТЕКТУРНЫЙ СТИЛЬ","val":"..."},
+    {"key":"ПРИМЕРНЫЙ ГОД","val":"..."},{"key":"СТРАНА/РЕГИОН","val":"..."}
+  ],
+  "Параметры":[
+    {"key":"ЭТАЖЕЙ","val":"..."},{"key":"ВЫСОТА","val":"..."},{"key":"МАТЕРИАЛ СТЕН","val":"..."},
+    {"key":"МАТЕРИАЛ КРОВЛИ","val":"..."},{"key":"СОСТОЯНИЕ","val":"...","flag":"green|yellow|red"}
+  ],
+  "Назначение":[
+    {"key":"ФУНКЦИЯ","val":"..."},{"key":"ВМЕСТИМОСТЬ","val":"..."},
+    {"key":"ОРИЕНТИР","val":"..."}
+  ],
+  "Оценка":[
+    {"key":"ИСТОРИЧЕСКАЯ ЦЕННОСТЬ","val":"..."},{"key":"СТОИМОСТЬ м²","val":"..."},
+    {"key":"ИНФРАСТРУКТУРА","val":"..."}
+  ]
+},
+"description":"Детальное описание здания 2-3 предложения"}`;
+  }
+
+  if (type === 'person') {
+    return base + `
+{"category":"ЧЕЛОВЕК","confidence":0.95,
+"sections":{
+  "Внешность":[
+    {"key":"ПОЛ","val":"..."},{"key":"ВОЗРАСТ","val":"..."},{"key":"РОСТ","val":"..."},
+    {"key":"ТЕЛОСЛОЖЕНИЕ","val":"..."},{"key":"ВОЛОСЫ","val":"..."}
+  ],
+  "Одежда":[
+    {"key":"СТИЛЬ","val":"..."},{"key":"ВЕРХ","val":"..."},{"key":"НИЗ","val":"..."},
+    {"key":"ОБУВЬ","val":"..."},{"key":"АКСЕССУАРЫ","val":"..."}
+  ],
+  "Состояние":[
+    {"key":"ПОЗА","val":"..."},{"key":"ЭМОЦИЯ","val":"..."},
+    {"key":"АКТИВНОСТЬ","val":"..."}
+  ]
+},
+"description":"Краткое нейтральное описание человека"}`;
+  }
+
+  if (type === 'animal') {
+    return base + `
+{"category":"ЖИВОТНОЕ","confidence":0.95,
+"sections":{
+  "Идентификация":[
+    {"key":"ВИД","val":"..."},{"key":"ПОРОДА","val":"..."},{"key":"ВОЗРАСТ","val":"..."},
+    {"key":"ПОЛ","val":"..."}
+  ],
+  "Внешность":[
+    {"key":"ОКРАС","val":"..."},{"key":"РАЗМЕР","val":"..."},{"key":"СОСТОЯНИЕ","val":"...","flag":"green|yellow|red"}
+  ],
+  "Поведение":[
+    {"key":"АКТИВНОСТЬ","val":"..."},{"key":"НАСТРОЕНИЕ","val":"..."}
+  ],
+  "Факты":[
+    {"key":"ПРОДОЛЖИТЕЛЬНОСТЬ ЖИЗНИ","val":"..."},{"key":"ОПАСНОСТЬ","val":"...","flag":"green|yellow|red"},
+    {"key":"ОХРАННЫЙ СТАТУС","val":"..."}
+  ]
+},
+"description":"Интересные факты о животном"}`;
+  }
+
+  // Generic object
+  return base + `
+{"category":"ОБЪЕКТ","confidence":0.95,
+"sections":{
+  "Идентификация":[
+    {"key":"ЧТО ЭТО","val":"..."},{"key":"ТИП","val":"..."},{"key":"МАТЕРИАЛ","val":"..."},
+    {"key":"ПРОИСХОЖДЕНИЕ","val":"..."}
+  ],
+  "Характеристики":[
+    {"key":"РАЗМЕР","val":"..."},{"key":"ЦВЕТ","val":"..."},{"key":"СОСТОЯНИЕ","val":"...","flag":"green|yellow|red"},
+    {"key":"НАЗНАЧЕНИЕ","val":"..."}
+  ],
+  "Оценка":[
+    {"key":"ВОЗРАСТ/ДАТА","val":"..."},{"key":"СТОИМОСТЬ","val":"..."},
+    {"key":"РЕДКОСТЬ","val":"..."}
+  ]
+},
+"description":"Детальное описание объекта"}`;
+}
+
+// Render parsed data into panel
+function renderData(data, type, col) {
+  let html = '';
+
+  const conf = data.confidence ? Math.round(data.confidence * 100) : 90;
+  html += `<div class="conf-bar"><div class="conf-fill" style="width:${conf}%;background:linear-gradient(90deg,${col}88,${col})"></div></div>`;
+
+  const sections = data.sections || {};
+  Object.entries(sections).forEach(([section, rows]) => {
+    html += `<div class="section-title">${section}</div>`;
+    (rows || []).forEach(row => {
+      const flagClass = row.flag === 'red' ? 'red' : row.flag === 'yellow' ? 'yellow' : '';
+      html += `<div class="data-row">
+        <div class="data-key">${row.key}</div>
+        <div class="data-val ${flagClass}">${row.val || '—'}</div>
+      </div>`;
+    });
+  });
+
+  if (data.description) {
+    html += `<div class="desc-block">${data.description}</div>`;
+  }
+
+  dataContent.innerHTML = html;
+}
+
+function closePanel() {
+  infoPanel.classList.remove('open');
+}
+
+// Close panel on tap outside
+document.addEventListener('click', e => {
+  if (!infoPanel.contains(e.target) && e.target !== canvas) {
+    // don't close when tapping canvas (handled above)
+  }
+});
 </script>
 </body>
 </html>
